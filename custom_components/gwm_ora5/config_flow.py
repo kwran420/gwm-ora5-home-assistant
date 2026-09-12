@@ -4,6 +4,7 @@ import uuid
 
 import voluptuous as vol
 from homeassistant import config_entries
+from homeassistant.core import callback
 from homeassistant.helpers import selector
 from gwm_client import GwmClientError
 from gwm_client.anz_auth import AnzAuthenticated, AnzVerificationRequired
@@ -14,6 +15,11 @@ from .const import DOMAIN, NAME
 
 class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     VERSION = 1
+
+    @staticmethod
+    @callback
+    def async_get_options_flow(config_entry):
+        return OptionsFlow()
 
     def __init__(self):
         self._data = {}
@@ -87,3 +93,20 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         self._reauth_entry = self._get_reconfigure_entry()
         self._data = dict(self._reauth_entry.data)
         return await self.async_step_user(user_input)
+
+
+class OptionsFlow(config_entries.OptionsFlow):
+    async def async_step_init(self, user_input=None):
+        errors = {}
+        if user_input is not None:
+            if user_input.get('enable_vehicle_controls') and not self.config_entry.data.get('pin'):
+                errors['base'] = 'pin_required'
+            else:
+                return self.async_create_entry(title='', data=user_input)
+        options = self.config_entry.options
+        return self.async_show_form(step_id='init', errors=errors, data_schema=vol.Schema({
+            vol.Required('enable_vehicle_controls', default=options.get('enable_vehicle_controls', False)): bool,
+            vol.Required('climate_temperature', default=options.get('climate_temperature', 25)): vol.All(vol.Coerce(int), vol.Range(min=16, max=32)),
+            vol.Required('control_duration', default=options.get('control_duration', 5)): vol.All(vol.Coerce(int), vol.Range(min=5, max=30)),
+            vol.Required('seat_level', default=options.get('seat_level', 1)): vol.All(vol.Coerce(int), vol.Range(min=1, max=3)),
+        }))

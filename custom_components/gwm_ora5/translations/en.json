@@ -37,5 +37,22 @@
       "reconfigure_successful": "Configuration updated.",
       "account_mismatch": "Use the same account when reconfiguring. Add a new integration entry for a different account."
     }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Vehicle controls",
+        "description": "Optional physical controls. Sound alarm is loud; alarm and boot-opening buttons are disabled by default. Temperature, duration and level apply to comfort-control buttons.",
+        "data": {
+          "enable_vehicle_controls": "Enable experimental vehicle controls",
+          "climate_temperature": "Climate target temperature (C)",
+          "control_duration": "Comfort-control duration (minutes)",
+          "seat_level": "Front seat heating/ventilation level"
+        }
+      }
+    },
+    "error": {
+      "pin_required": "Configure your six-digit vehicle PIN by reconfiguring the integration first."
+    }
   }
 }

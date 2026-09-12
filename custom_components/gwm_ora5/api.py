@@ -78,7 +78,7 @@ def telemetry(status):
     states = {0: "connected", 1: "charging", 2: "awaiting_charging",
               3: "complete", 5: "waiting_for_power", 6: "error"}
     soc = number("2013021")
-    return {
+    values = {
         "soc": soc if soc is not None and 0 <= soc <= 100 else None,
         "range": number("2011501"),
         "plugged_in": bool(plug) if plug in (0, 1) else None,
@@ -86,15 +86,46 @@ def telemetry(status):
         "charging_status": "disconnected" if charge == 0 and plug == 0 else states.get(charge),
         "vehicle_updated_ms": status.update_time_ms or status.acquisition_time_ms,
     }
+    for metric, code in {
+        'odometer': '2103010', 'remaining_charge_time': '2013022',
+        'charging_mode_code': '2013023', 'away_mode_code': '2012881',
+        'steering_heating': '2060016', 'ac_active': '2202001',
+        'unlocked': '2208001', 'boot_open': '2206001',
+        'front_demister': '2222001', 'rear_demister': '2210032',
+        'air_circulation': '2078020', 'gps_authorized': '2310001',
+    }.items():
+        values[metric] = number(code)
+    for metric in ('steering_heating', 'ac_active', 'unlocked', 'boot_open',
+                   'front_demister', 'rear_demister', 'air_circulation', 'gps_authorized'):
+        value = values[metric]
+        values[metric] = bool(value) if value in (0, 1) else None
+    for index, position in enumerate(('front_left', 'front_right', 'rear_left', 'rear_right'), 1):
+        pressure, temperature = number(f'210100{index}'), number(f'210100{index+4}')
+        values[f'tyre_pressure_{position}'] = pressure if pressure is not None and 0 <= pressure <= 600 else None
+        values[f'tyre_temperature_{position}'] = temperature if temperature is not None and -40 <= temperature <= 150 else None
+        window = number(f'221000{index}')
+        values[f'window_{position}'] = window != 1 if window in (0, 1, 2, 3) else None
+    for metric, code in {'door_driver':'2206002', 'door_passenger':'2206004',
+                         'door_rear_driver':'2206003', 'door_rear_passenger':'2206005'}.items():
+        value = number(code)
+        values[metric] = bool(value) if value in (0, 1) else None
+    for metric, code in {'seat_heat_driver':'2220001', 'seat_heat_passenger':'2220002',
+                         'seat_vent_driver':'2220003', 'seat_vent_passenger':'2220004'}.items():
+        value = number(code)
+        values[metric] = int(value) if value in (0, 1, 2, 3) else None
+    values['raw_signals'] = {code: number(code) for code in raw
+                            if isinstance(code, str) and code.isdigit() and len(code) == 7 and number(code) is not None}
+    values['latitude'], values['longitude'] = status.latitude, status.longitude
+    return values
 
 
-def charging_result(items):
+def charging_result(items, remote_type="0x01"):
     """Result response is already scoped by the request's seqNo.
 
     The official app selects remoteType. hwCommandId is a different identifier,
     not a request-sequence echo. Refuse ambiguous duplicate charging results.
     """
-    matches = [item for item in items if item.remote_type == "0x01"]
+    matches = [item for item in items if item.remote_type == remote_type]
     if len(matches) != 1:
         return "pending"
     code = matches[0].result_code
@@ -106,15 +137,47 @@ def charging_result(items):
 
 
 class OraClient(GwmClient):
+    async def charging_details(self, identifier):
+        """Read the observed ANZ schedule shape and paginated history summary."""
+        async def read(session, deadline):
+            request = self._prepare_command_request(operation='get_charging_plan', gateway_role=GatewayRole.H5_V1,
+                method='GET', path='vehicleCharge/getChargingInfos?vin=' + quote(identifier.value, safe=''),
+                body=None, session=session, vin_header=identifier)
+            schedule = await self._send_command_request(request, deadline=deadline)
+            request = self._prepare_command_request(operation='get_charging_plan', gateway_role=GatewayRole.H5_V1,
+                method='POST', path='vehicleCharge/getChargeLogs',
+                body=self._encode_request_json({'vin': identifier.value, 'pageNum': 1, 'pageSize': 1}),
+                session=session, vin_header=identifier)
+            history = await self._send_command_request(request, deadline=deadline)
+            if not isinstance(schedule, dict) or not isinstance(history, dict):
+                raise ValueError('Unexpected charging details')
+            plans = schedule.get('chargePlanList')
+            if not isinstance(plans, list) or any(not isinstance(p, dict) for p in plans):
+                raise ValueError('Unexpected charging schedule')
+            public_plans = [{key: plan.get(key) for key in ('planType', 'startTime', 'endTime', 'weeks')
+                             if plan.get(key) is None or type(plan.get(key)) in (str, int)} for plan in plans]
+            count = history.get('total')
+            return {'schedule_plan_count': len(plans), 'charging_plans': public_plans,
+                    'recorded_charging_sessions': count if type(count) is int and count >= 0 else None}
+        return await self._execute_authenticated_command('get_charging_plan', timeout=None, action=read)
+
     async def charge(self, identifier, *, enabled, pin, sequence=None):
-        if type(enabled) is not bool or not isinstance(pin, str) or len(pin) != 6 or not pin.isascii() or not pin.isdigit():
-            raise ValueError("A six-digit PIN and explicit charging state are required")
+        if type(enabled) is not bool:
+            raise ValueError("An explicit charging state is required")
+        return await self.send_control(identifier, instruction="0x01",
+            body={"switchOrder": "1" if enabled else "2"}, pin=pin, sequence=sequence)
+
+    async def send_control(self, identifier, *, instruction, body, pin, sequence=None):
+        if instruction not in {"0x01", "0x04", "0x05", "0x06", "0x08", "0x09", "0x0A", "0x0B", "0x11", "0x19"}:
+            raise ValueError("Unsupported instruction")
+        if not isinstance(pin, str) or len(pin) != 6 or not pin.isascii() or not pin.isdigit():
+            raise ValueError("A six-digit PIN is required")
         sequence = sequence or uuid.uuid4().hex + "1234"
         if len(sequence) != 36 or not sequence.endswith("1234") or any(c not in "0123456789abcdef" for c in sequence):
             raise ValueError("Invalid command sequence")
         payload = self._encode_request_json({
             "vin": identifier.value, "seqNo": sequence, "remoteType": "0",
-            "instructions": {"0x01": {"switchOrder": "1" if enabled else "2"}},
+            "instructions": {instruction: body},
             "securityPassword": hashlib.md5(pin.encode()).hexdigest(), "type": 2,
         })
 

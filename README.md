@@ -5,12 +5,14 @@ Experimental Home Assistant integration for the **GWM ORA 5 in Australia and New
 ## What works
 
 - GWM account login, email verification and shared-vehicle discovery.
-- Battery percentage, range, cable connection and charging status.
+- Battery, range, odometer, charging time, four tyre pressures/temperatures, doors, windows, locks, seats and climate status.
+- Optional raw numeric status signals and GPS tracking (disabled by default).
 - Opt-in direct Start and Stop charging buttons, with result polling.
-- Serialized commands, a persistent command journal, and no automatic write retries.
+- Opt-in climate, front-seat heating/ventilation, demisters, steering-wheel heating, boot and light/alarm controls; a native lock entity supports secure voice-assistant exposure.
+- Serialized commands, a persistent journal, result polling and vehicle-state confirmation. Explicit authentication rejection permits one refresh/retry; ambiguous writes are never automatically resent.
 - Diagnostics that exclude credentials, PINs, tokens, vehicle identifiers and location.
 
-**Validation status:** Login, telemetry and a bounded Start ? Stop cycle were verified on one Australian ORA 5. Both commands returned completion; cloud telemetry changed to charging after Start and non-charging after Stop, with an accompanying household power increase during charging. This is a single-vehicle test, not broad reliability validation. New Zealand has not been live-tested. Unattended solar control is not included or validated. Cloud control cannot guarantee an immediate stop during an outage.
+**Validation status:** Supervised tests on one Australian ORA 5 verified charging, climate, lock/unlock, front-seat heat/ventilation, steering-wheel heat, front/rear demisters, boot open/close and light/alarm commands. State-changing commands were checked against telemetry; the observer confirmed boot closure and that the horn command is a loud alarm. Cabin-air refresh started and stopped in telemetry. Window-closing motion remains unverified. Schedule writes were accepted but not confirmed in readback; no schedule was left enabled. See [the capability investigation](RESEARCH.md). New Zealand and other trims have not been live-tested. Cloud control cannot guarantee an immediate stop during an outage.
 
 ## Install
 
@@ -24,17 +26,17 @@ Requires Home Assistant 2026.1 or newer. This is a custom integration, not an of
 
 Use a dedicated GWM account and share your ORA 5 with it from your owner account. GWM can displace another session using the same account. Keep your phone signed into the owner account, and let Home Assistant use the dedicated one. Configure the vehicle PIN on the dedicated account before signing it into Home Assistant to reduce repeated verification.
 
-Account details, PIN and tokens are stored in Home Assistant's private configuration/storage. Protect Home Assistant backups as you would other credentials; this integration does not provide separate encryption of Home Assistant storage. No credentials are included in this repository. Reconfigure the integration to change credentials or the command opt-in.
+Account details, PIN and tokens are stored in Home Assistant's private configuration/storage. Protect Home Assistant backups as you would other credentials; this integration does not provide separate encryption of Home Assistant storage. No credentials are included in this repository. Reconfigure the integration to change credentials or charging permission. Use **Configure** for the separate vehicle-controls opt-in, climate temperature, runtime and front-seat level. No new login is needed for these options. Alarm, boot-open, raw-signal and location entities are disabled by default; enable individually if wanted.
 
 ## Charging semantics
 
-The buttons send direct commands; they do not change or clear charging schedules. The charging binary sensor reflects cloud telemetry, not an optimistic button state. `Command status` reports cloud command completion separately from charging telemetry.
+The buttons send direct commands; they do not change or clear charging schedules. The charging binary sensor reflects cloud telemetry, not an optimistic button state. `Command status` remains `awaiting_feedback` until the requested vehicle state is observed. Alarm/light pulses have no persistent state to verify, so their status represents cloud completion only.
 
 A timed-out request may still execute. The integration journals the attempt before sending and does not resend it. Pending results are polled without repeating the command. A new Start is blocked while an earlier result is unresolved; an explicit Stop remains available.
 
 ## Solar and home-battery coordination
 
-The general integration exposes vehicle controls and telemetry. Site-specific solar forecasts, battery reserves, household history and electricity tariffs are **not hard-coded** into it. A forecast-based overnight-reserve controller is being developed separately. This release does not install energy automations or promise zero grid import.
+The general integration exposes vehicle controls and telemetry. Site-specific solar forecasts, battery reserves, household history and electricity tariffs are **not hard-coded** into it. A private forecast-based overnight-reserve controller is maintained separately. This release does not install energy automations or promise zero grid import.
 
 ## Dependency and release status
 
@@ -52,3 +54,7 @@ python -m compileall -q custom_components tests
 ```
 
 Report the app version, region, HA version and a sanitized description. Never post passwords, verification codes, PINs, tokens, VINs, raw captures or Home Assistant configuration files.
+
+## Google Home
+
+Expose the native ORA door-lock entity through Home Assistant's Google Assistant integration. Voice unlocking requires its secure-device PIN configuration. This is separate from the GWM PIN stored by this integration. Google Home exposure is not configured automatically. See [Home Assistant instructions](https://www.home-assistant.io/integrations/google_assistant).

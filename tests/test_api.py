@@ -7,10 +7,14 @@ from pathlib import Path
 
 from gwm_client import GwmClientConfig, GwmSession, Region, RemoteCommandResultItem, VehicleIdentifier
 from gwm_client._protocol import _TransportResponse
+from gwm_client.models import CloudStatusItem, CloudVehicleStatus
 
 spec = importlib.util.spec_from_file_location("ora5_api", Path(__file__).parents[1] / "custom_components/gwm_ora5/api.py")
 api = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(api)
+spec_controls = importlib.util.spec_from_file_location("ora5_controls", Path(__file__).parents[1] / "custom_components/gwm_ora5/controls.py")
+controls = importlib.util.module_from_spec(spec_controls)
+spec_controls.loader.exec_module(controls)
 
 
 class Transport:
@@ -87,6 +91,58 @@ class ApiTests(unittest.IsolatedAsyncioTestCase):
     def test_credentials_preserve_password(self):
         credentials = api.make_credentials({"account": "user@example.invalid", "password": "synthetic-password!", "country": "AU", "device_id": "a" * 32})
         self.assertEqual(credentials.password, "synthetic-password!")
+
+    def test_climate_off_matches_anz_app(self):
+        code, body = controls.command_body('climate_off')
+        self.assertEqual(code, '0x04')
+        self.assertEqual(body, {'airConditioner': {'switchOrder': '2', 'operationTime': '0'}})
+
+    def test_seat_payload_does_not_address_nonexistent_rows(self):
+        _, body = controls.command_body('seat_heat_on', level=2)
+        self.assertEqual(body['seat']['leftFront'], '2')
+        self.assertEqual(body['seat']['leftBack'], '0')
+        self.assertNotIn('leftThirdRow', body['seat'])
+
+    def test_controls_reject_unknown_actions_and_bad_parameters(self):
+        for args in [dict(action='engine_start'), dict(action='climate_on', duration=0),
+                     dict(action='seat_heat_on', level=4), dict(action='climate_on', temperature=True)]:
+            with self.assertRaises(ValueError):
+                controls.command_body(**args)
+
+    def test_result_is_scoped_to_requested_control(self):
+        result = (RemoteCommandResultItem(remote_type='0x04', result_code='0'),)
+        self.assertEqual(api.charging_result(result, '0x04'), 'completed')
+        self.assertEqual(api.charging_result(result, '0x05'), 'pending')
+
+    def test_extended_telemetry_decodes_zero_and_missing_correctly(self):
+        status = CloudVehicleStatus(items=(CloudStatusItem('2208001', '0'),
+            CloudStatusItem('2206001', '1'), CloudStatusItem('2101001', '250.5'),
+            CloudStatusItem('2220001', '2'), CloudStatusItem('2013023', '0')))
+        result = api.telemetry(status)
+        self.assertIs(result['unlocked'], False)
+        self.assertIs(result['boot_open'], True)
+        self.assertEqual(result['tyre_pressure_front_left'], 250.5)
+        self.assertEqual(result['seat_heat_driver'], 2)
+        self.assertIsNone(result['window_front_left'])
+        self.assertEqual(result['charging_mode_code'], 0)
+
+    def test_unknown_or_invalid_signal_values_remain_unknown(self):
+        result = api.telemetry(CloudVehicleStatus(items=(CloudStatusItem('2208001', '255'),
+            CloudStatusItem('2101001', 'nan'), CloudStatusItem('2220001', '255'))))
+        self.assertIsNone(result['unlocked'])
+        self.assertIsNone(result['tyre_pressure_front_left'])
+        self.assertIsNone(result['seat_heat_driver'])
+
+    async def test_charging_details_accept_null_schedule_and_redact_identifiers(self):
+        transport = Transport([
+            {'code': '000000', 'data': {'chargePlanList': [{'planType': '-1', 'startTime': None, 'vin': 'PRIVATE-SENTINEL'}]}},
+            {'code': '000000', 'data': {'total': 3, 'list': [{'vin': 'PRIVATE-SENTINEL'}]}},
+        ])
+        async with client(transport) as c:
+            details = await c.charging_details(VehicleIdentifier('SYNTHETIC-VEHICLE'))
+        self.assertEqual(details['recorded_charging_sessions'], 3)
+        self.assertEqual(details['charging_plans'][0]['planType'], '-1')
+        self.assertNotIn('PRIVATE-SENTINEL', str(details))
 
 
 if __name__ == "__main__":
