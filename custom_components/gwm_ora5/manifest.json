@@ -1,13 +1,19 @@
 {
   "domain": "gwm_ora5",
   "name": "GWM ORA 5",
-  "version": "0.1.0",
-  "codeowners": ["@kwran420"],
+  "version": "0.1.1",
+  "codeowners": [
+    "@kwran420"
+  ],
   "config_flow": true,
   "integration_type": "hub",
   "iot_class": "cloud_polling",
   "documentation": "https://github.com/kwran420/gwm-ora5-home-assistant",
   "issue_tracker": "https://github.com/kwran420/gwm-ora5-home-assistant/issues",
-  "requirements": ["gwm-client@https://github.com/moryoav/ha-gwm-ev/archive/6a910ca71a68807b6f60ac0a664f00a9c6d1fe41.zip"],
-  "loggers": ["gwm_client"]
+  "requirements": [
+    "gwm-client@https://github.com/moryoav/ha-gwm-ev/archive/6a910ca71a68807b6f60ac0a664f00a9c6d1fe41.zip"
+  ],
+  "loggers": [
+    "gwm_client"
+  ]
 }

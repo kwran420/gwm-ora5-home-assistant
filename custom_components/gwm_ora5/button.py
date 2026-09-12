@@ -15,7 +15,7 @@ class OraChargeButton(OraEntity, ButtonEntity):
     def __init__(self, coordinator, key, enabled):
         super().__init__(coordinator, key, "start_charging" if enabled else "stop_charging",
                          "Start charging" if enabled else "Stop charging")
-        self.enabled = enabled
+        self._charge_enabled = enabled
         self._attr_icon = "mdi:ev-station" if enabled else "mdi:stop-circle-outline"
 
     @property
@@ -23,4 +23,4 @@ class OraChargeButton(OraEntity, ButtonEntity):
         return super().available and bool(self.coordinator.entry.data.get("enable_commands"))
 
     async def async_press(self):
-        await self.coordinator.charge(self.vehicle_key, self.enabled)
+        await self.coordinator.charge(self.vehicle_key, self._charge_enabled)

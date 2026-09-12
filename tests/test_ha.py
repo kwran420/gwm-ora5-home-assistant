@@ -9,6 +9,18 @@ HAS_HA = importlib.util.find_spec("homeassistant") is not None
 
 @unittest.skipUnless(HAS_HA, "Run in a Home Assistant Python environment")
 class HomeAssistantTests(unittest.IsolatedAsyncioTestCase):
+    async def test_buttons_construct_and_send_the_requested_state(self):
+        from custom_components.gwm_ora5.button import OraChargeButton
+        coordinator = SimpleNamespace(
+            entry=SimpleNamespace(entry_id="synthetic", data={"enable_commands": True}),
+            data={"synthetic": {}}, last_update_success=True, charge=AsyncMock(),
+        )
+        for requested in (True, False):
+            button = OraChargeButton(coordinator, "synthetic", requested)
+            self.assertTrue(button.available)
+            await button.async_press()
+            coordinator.charge.assert_awaited_with("synthetic", requested)
+
     async def test_form_selectors_and_pin_validation(self):
         from custom_components.gwm_ora5.config_flow import ConfigFlow
         flow = ConfigFlow()
