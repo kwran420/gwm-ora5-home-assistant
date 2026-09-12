@@ -1,0 +1,41 @@
+{
+  "title": "GWM ORA 5",
+  "config": {
+    "step": {
+      "user": {
+        "title": "Connect an ORA 5 account",
+        "description": "Experimental Australia/New Zealand support. Use a dedicated GWM account with the ORA 5 shared to it. Enter your own credentials. Enabling commands permits Start and Stop; configure a six-digit vehicle PIN in the GWM app first. Signing in may displace this account on your phone.",
+        "data": {
+          "country": "Account country",
+          "account": "GWM email or account",
+          "password": "GWM password",
+          "pin": "Six-digit vehicle-control PIN",
+          "enable_commands": "Enable experimental charging commands"
+        }
+      },
+      "verify": {
+        "title": "Verify the Home Assistant login",
+        "description": "Enter the verification code GWM emailed for this login. Do not enter it in the phone app.",
+        "data": {
+          "code": "Verification code"
+        }
+      },
+      "retry": {
+        "title": "Sign-in was not completed",
+        "description": "Check the account details, connectivity and verification code, then try again."
+      }
+    },
+    "error": {
+      "invalid_pin": "Enter the six-digit vehicle PIN configured in the GWM app.",
+      "cannot_connect": "GWM sign-in failed. Check your details or try again later."
+    },
+    "abort": {
+      "already_configured": "This account is already configured.",
+      "cannot_authenticate": "GWM requires a new sign-in.",
+      "no_ora5": "No shared or owned ORA 5 was found on this account.",
+      "reauth_successful": "Sign-in updated.",
+      "reconfigure_successful": "Configuration updated.",
+      "account_mismatch": "Use the same account when reconfiguring. Add a new integration entry for a different account."
+    }
+  }
+}

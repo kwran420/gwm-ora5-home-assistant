@@ -1,0 +1,16 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.venv/
+dist/
+*.egg-info/
+*.credential.*
+*.pin.*
+*.auth.*
+*.apk
+*.dex
+*.pem
+*.key
+.env
+private/
