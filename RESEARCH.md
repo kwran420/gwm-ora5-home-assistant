@@ -122,3 +122,41 @@ A later cloud response contained 47 numeric fields: estimated charging time
 (`2013022`) was absent from the earlier 48-field set and returned during charging.
 V0.3.1 labels the count and
 lists unmapped fields explicitly; it does not convert unknown codes into faults.
+
+## WiCAN assessment - 2026-09-13
+
+WiCAN Pro is the preferred investigation candidate. Its [hardware](https://www.meatpi.com/products/wican-pro)
+adds USB access, microSD logging and broader diagnostic protocol support. It
+requires OBD power even when USB is attached. This is a hardware recommendation
+for development, not a claim of verified ORA 5 compatibility.
+
+The [ORA owner discussion](https://github.com/meatpiHQ/wican-fw/discussions/69)
+contains additional custom definitions beyond the main profile: battery health,
+pack voltage/current, cell-voltage extremes, battery/module temperatures, 12 V
+voltage and cumulative charge/discharge counters. Contributors report successful
+readings on older ORAs, with some missing responses. Definitions disagree on
+some scaling and units, especially cumulative totals and tyres. These are
+candidate measurements until independently checked on this car.
+
+The published current-to-power approximation assumes an approximately fixed
+pack voltage. Prefer independently verified voltage multiplied by current for
+DC battery power; AC input also includes charger losses and vehicle overhead.
+Neither value should silently replace measured household grid import.
+
+The current [HA integration](https://github.com/jay-oswald/ha-wican) uses local
+push/webhooks and describes itself as alpha. MQTT is an alternative. Whichever
+transport is selected, keep actual sample age, device connectivity and ECU
+response availability separate. A cached value is not a fresh reading. The
+[arrival/sleep issue](https://github.com/meatpiHQ/wican-fw/issues/825) shows why
+joining home Wi-Fi after the ECU sleeps can miss the final trip reading.
+
+The [Pro V4.51 firmware release](https://github.com/meatpiHQ/wican-fw/releases/tag/v4.51p)
+fixes an AutoPID decoding issue; use the correct Pro firmware line for testing.
+Do not assume the original WiCAN's setup defaults match Pro firmware.
+
+Initial validation should compare SOC and odometer, then observe plugged-in
+charging, stopped charging, locked sleep and the next wake-up. Enable additional
+queries gradually and check 12 V behaviour before permanent installation. Keep
+the cloud control path during evaluation. No validated local ORA 5 start/stop,
+lock, climate or window command has been identified, and no adapter is connected
+to this installation yet.
