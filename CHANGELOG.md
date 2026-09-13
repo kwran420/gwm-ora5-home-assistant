@@ -1,3 +1,10 @@
+# V0.3.0 - 2026-09-13
+
+- Add a comfort-start action with per-command temperature, runtime and seat level.
+- Add optional sanitised remote-command history and explicit last-action feedback.
+- Record further ANZ endpoint findings and distinguish saved preferences from live status.
+- Validate 32 client and Home Assistant tests; independent seat-side and newly selected physical settings remain unverified.
+
 # V0.2.0
 
 - Add extended telemetry, opt-in vehicle controls, a native lock and optional location tracking.

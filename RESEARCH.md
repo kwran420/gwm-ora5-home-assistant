@@ -53,3 +53,46 @@ The advertised warning-reset function is labelled as silencing a life-sign/occup
 Commands are journaled before transmission. Results are scoped by request sequence and instruction type. For persistent controls, cloud completion is followed by checking the requested telemetry state. If the state does not agree, the journal remains `awaiting_feedback` and blocks another start operation. Explicit stop/lock/close-window operations remain available. Alarm/light pulses lack continuous feedback and therefore report provider completion only.
 
 One refresh/retry is allowed only after an explicit authentication rejection before command acceptance. Network timeout, unknown outcome and pending execution do not trigger blind resends. A real physical observer remains important when validating movement and audible behaviour.
+
+## Further investigation - 2026-09-13
+
+The following read contracts were recovered from the ANZ app's native API
+definitions and checked using the existing dedicated session. No login/reclaim,
+firmware write, safety-alarm command or speculative control was used.
+
+| Surface | Evidence and outcome |
+|---|---|
+| Remote-command history | `POST vehicle/getWeyVrcHistory`, body `vin`, `pageNum`, `pageSize`, VIN header. Returns a paginated list with `remoteType`, `resultCode`, `createdAt`, `modifiedAt` and other private fields. A three-record page returned real command records. V0.3.0 retains only a sanitised latest-record summary. |
+| Firmware update metadata | `GET vehicleFota/getFotaDetail`, VIN query/header. Returned `taskStatus=0` and null target version/progress. This establishes a readable metadata endpoint only; it does not establish update availability, current firmware version or a usable remote-update command. |
+| Saved comfort presets | `GET vehicle/getCompoundCommandTemplateList` exists in the app; returned HTTP 404 on the tested ANZ app gateway. Not exposed. |
+| Battery-preheat plan | `GET vehicleBatPack/queryBatPackPreheatPlan` exists in the app; returned HTTP 404 on that gateway. Heating is also absent from the tested ORA control capability tree. Not exposed. |
+| Native climate appointment | `POST appointment/queryAppointmentPlan`, body `vin`, `vehicleId`, `type="AC"`. Returned HTTP 404 on that gateway. Use HA scheduling of the validated climate command instead. |
+| Driving statistics | App declares `/driving-statistics/api/v1.0/driving/getSummaryInfo` and `getDetailInfo`, with `dateType`, `localDate`, `vin`. Response models describe distance, trip count, trip time and speeds. Required date enumeration and regional availability remain unverified; no claimed working endpoint or consumption feed. |
+
+HTTP 404 is evidence about the tested regional route, not proof that the vehicle
+hardware can never support the feature. No other gateway was guessed or scanned.
+
+The live status still supplied the same 48 numeric signals. Power-state and
+fast/slow-charge items occur in the capability tree but usable extra measurements
+were not present in this response. No traction-pack current/voltage, state of
+health, cell temperatures or 12 V voltage was found.
+
+`vehicleBasicsInfo.config` contains saved climate temperature/runtime, seat levels,
+demister runtimes, blower/power settings and cabin-cleaning metadata. Some saved
+values remained enabled while live status showed those functions off. These are
+preferences, not current cabin temperature, live fan speed or active demisters.
+
+The app's seat command has separate front-side fields and the capability tree
+advertises three heating/ventilation levels for both front seats. Individual-side
+behaviour on this right-hand-drive car has not been physically checked; both-seat
+tests cannot prove the side mapping. V0.3.0 therefore adds per-command level and
+runtime to existing both-front-seat controls without releasing an unverified
+driver-only button. Window opening, sunroof, battery heating, away-mode control,
+GPS changes and warning-alarm suppression remain outside the released controls.
+
+Validation: 32 synthetic client/HA tests passed in HA Python 3.14, including strict
+parameter validation, single-entity targeting, unchanged saved options, requested
+seat-level feedback and history redaction. No new physical comfort test has been
+claimed. A cloud timeout/authentication interruption occurred during the session;
+reads later recovered. The private reserve controller's recovery for a completed
+Stop with an unchanged sleeping-car timestamp is tested separately.

@@ -137,6 +137,32 @@ def charging_result(items, remote_type="0x01"):
 
 
 class OraClient(GwmClient):
+    async def remote_history(self, identifier):
+        """Read a small history page; retain no actors, identifiers or payloads."""
+        async def read(session, deadline):
+            request = self._prepare_command_request(operation='get_vehicle_basics',
+                gateway_role=GatewayRole.APP_V1, method='POST', path='vehicle/getWeyVrcHistory',
+                body=self._encode_request_json({'vin': identifier.value, 'pageNum': 1, 'pageSize': 3}),
+                session=session, vin_header=identifier)
+            data = await self._send_command_request(request, deadline=deadline)
+            if not isinstance(data, dict) or not isinstance(data.get('list'), list):
+                raise ValueError('Unexpected remote history')
+            records = []
+            for row in data['list'][:3]:
+                if not isinstance(row, dict):
+                    continue
+                stamp, instruction, code = row.get('createdAt'), row.get('remoteType'), row.get('resultCode')
+                if type(stamp) is not int or not 946684800000 <= stamp <= 4102444800000:
+                    continue
+                records.append({'timestamp_ms': stamp,
+                    'instruction': instruction if isinstance(instruction, str) and len(instruction) == 4 and instruction.startswith('0x') and all(c in '0123456789abcdefABCDEF' for c in instruction[2:]) else None,
+                    'provider_result_code': code if isinstance(code, str) and code.isascii() and code.isdigit() and len(code) <= 8 else None})
+            latest = max(records, key=lambda r:r['timestamp_ms']) if records else {}
+            total = data.get('total')
+            return {'remote_history_last_ms': latest.get('timestamp_ms'),
+                    'remote_history_summary': {**latest, 'record_count': total if type(total) is int and total >= 0 else None}}
+        return await self._execute_authenticated_command('get_vehicle_basics', timeout=None, action=read)
+
     async def charging_details(self, identifier):
         """Read the observed ANZ schedule shape and paginated history summary."""
         async def read(session, deadline):

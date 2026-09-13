@@ -10,6 +10,8 @@ Experimental Home Assistant integration for the **GWM ORA 5 in Australia and New
 - Opt-in direct Start and Stop charging buttons, with result polling.
 - Opt-in climate, front-seat heating/ventilation, demisters, steering-wheel heating, boot and light/alarm controls; a native lock entity supports secure voice-assistant exposure.
 - Serialized commands, a persistent journal, result polling and vehicle-state confirmation. Explicit authentication rejection permits one refresh/retry; ambiguous writes are never automatically resent.
+- Per-command climate temperature, comfort runtime and front-seat level through `gwm_ora5.start_comfort`, without changing account options or reconnecting.
+- Optional remote-command history summary, including provider result codes, with identifiers and command payloads excluded.
 - Diagnostics that exclude credentials, PINs, tokens, vehicle identifiers and location.
 
 **Validation status:** Supervised tests on one Australian ORA 5 verified charging, climate, lock/unlock, front-seat heat/ventilation, steering-wheel heat, front/rear demisters, boot open/close and light/alarm commands. State-changing commands were checked against telemetry; the observer confirmed boot closure and that the horn command is a loud alarm. Cabin-air refresh started and stopped in telemetry. Window-closing motion remains unverified. Schedule writes were accepted but not confirmed in readback; no schedule was left enabled. See [the capability investigation](RESEARCH.md). New Zealand and other trims have not been live-tested. Cloud control cannot guarantee an immediate stop during an outage.
@@ -37,6 +39,36 @@ A timed-out request may still execute. The integration journals the attempt befo
 ## Solar and home-battery coordination
 
 The general integration exposes vehicle controls and telemetry. Site-specific solar forecasts, battery reserves, household history and electricity tariffs are **not hard-coded** into it. A private forecast-based overnight-reserve controller is maintained separately. This release does not install energy automations or promise zero grid import.
+
+## Comfort settings in automations
+
+Use **GWM ORA 5: Start comfort with settings** in Home Assistant's action editor.
+Target exactly one enabled comfort start button. Climate accepts `temperature`
+(16–32 °C) and `duration` (5–30 minutes); front-seat heating/ventilation accepts
+`level` (1–3) and `duration`; steering heat and demisters accept `duration`.
+Omitted values use integration options. The normal Stop buttons remain available.
+
+```yaml
+action: gwm_ora5.start_comfort
+target:
+  entity_id: button.gwm_ora_5_start_climate
+data:
+  temperature: 24
+  duration: 10
+```
+
+Entity names can differ between installations. This action does not expose raw
+commands, alarm controls or unsupported hardware. Seat commands currently apply
+to both front seats; independent-side mapping still needs physical verification.
+Feedback confirms climate activation, not a measured cabin temperature or achieved
+setpoint. Seat feedback must match the requested level on both seats.
+
+Enable **Last recorded remote command** in the entity registry for optional cloud
+history. It polls at most every 15 minutes and shows only the latest timestamp,
+instruction, provider result code and total record count. It is supplementary
+diagnostic history, not the command journal or proof of physical completion.
+**Command status** now includes the last integration action and expected charging
+state, allowing consumers to distinguish a confirmed Stop from unrelated commands.
 
 ## Dependency and release status
 

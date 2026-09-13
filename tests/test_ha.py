@@ -3,13 +3,73 @@ import importlib.util
 import unittest
 import asyncio
 from types import SimpleNamespace
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 HAS_HA = importlib.util.find_spec("homeassistant") is not None
 
 
 @unittest.skipUnless(HAS_HA, "Run in a Home Assistant Python environment")
 class HomeAssistantTests(unittest.IsolatedAsyncioTestCase):
+    async def test_comfort_service_registers_at_component_setup(self):
+        from custom_components.gwm_ora5 import async_setup
+        h=SimpleNamespace(services=SimpleNamespace(async_register=MagicMock()))
+        self.assertTrue(await async_setup(h,{}))
+        args=h.services.async_register.call_args.args
+        self.assertEqual(args[:2],('gwm_ora5','start_comfort'))
+        self.assertEqual(args[3]({'entity_id':'button.ora_climate','temperature':24})['temperature'],24)
+
+    async def test_service_requires_one_explicit_comfort_button(self):
+        from custom_components.gwm_ora5 import _start_comfort
+        from homeassistant.exceptions import HomeAssistantError
+        c = SimpleNamespace(control=AsyncMock())
+        e = SimpleNamespace(entity_id='button.ora_climate', action='climate_on', vehicle_key='v', coordinator=c)
+        await _start_comfort(e, SimpleNamespace(data={'entity_id':['button.ora_climate'], 'temperature':24, 'duration':10}))
+        c.control.assert_awaited_once_with('v','climate_on',temperature=24,duration=10)
+        c.control.reset_mock()
+        for target in ({'device_id':['device']}, {'entity_id':['button.ora_climate','button.ora_seats']},
+                       {'entity_id':['button.ora_climate'], 'area_id':['garage']}, {}):
+            with self.assertRaises(HomeAssistantError):
+                await _start_comfort(e, SimpleNamespace(data=target))
+        e.action='horn'
+        with self.assertRaises(HomeAssistantError):
+            await _start_comfort(e, SimpleNamespace(data={'entity_id':['button.ora_climate']}))
+        c.control.assert_not_called()
+
+    async def test_comfort_overrides_do_not_change_options(self):
+        c = self.command_coordinator()
+        original = dict(c.entry.options)
+        with patch('custom_components.gwm_ora5.coordinator.asyncio.sleep', new=AsyncMock()):
+            await c.control('vehicle', 'climate_on', temperature=24, duration=10)
+        self.assertEqual(c.client.send_control.await_args.kwargs['body'],
+                         {'airConditioner':{'switchOrder':'1','operationTime':'10','temperature':'24'}})
+        self.assertEqual(c.entry.options, original)
+
+    async def test_seat_override_sets_feedback_to_requested_level(self):
+        from gwm_client.models import CloudVehicleStatus, CloudStatusItem
+        c = self.command_coordinator()
+        c.client.charge_result.return_value=[SimpleNamespace(remote_type='0x0A',result_code='0')]
+        c.client.get_last_status.return_value=CloudVehicleStatus(items=(CloudStatusItem('2220003','3'),CloudStatusItem('2220004','3')))
+        with patch('custom_components.gwm_ora5.coordinator.asyncio.sleep', new=AsyncMock()):
+            await c.control('vehicle','seat_vent_on',level=3,duration=10)
+        self.assertEqual(c.journal['vehicle']['expected'],{'seat_vent_driver':3,'seat_vent_passenger':3})
+        self.assertEqual(c.journal['vehicle']['state'],'completed')
+
+    async def test_bad_override_fails_before_transmission(self):
+        from homeassistant.exceptions import HomeAssistantError
+        c = self.command_coordinator()
+        with self.assertRaises(HomeAssistantError):
+            await c.control('vehicle','climate_on',level=3)
+        c.client.send_control.assert_not_called()
+        self.assertEqual(c.journal,{})
+
+    async def test_command_sensor_exposes_only_reviewed_feedback_fields(self):
+        from custom_components.gwm_ora5.sensor import OraSensor
+        c=SimpleNamespace(entry=SimpleNamespace(entry_id='synthetic'), data={'v':{
+            'command_action':'stop','command_expected_charging':False,'sequence':'PRIVATE-SENTINEL'}})
+        e=OraSensor(c,'v','command_status','Command status')
+        self.assertEqual(e.extra_state_attributes,{'last_action':'stop','expected_charging':False})
+        self.assertNotIn('PRIVATE-SENTINEL',str(e.extra_state_attributes))
+
     def command_coordinator(self):
         from custom_components.gwm_ora5.coordinator import OraCoordinator
         from gwm_client.models import CloudVehicleStatus, CloudStatusItem

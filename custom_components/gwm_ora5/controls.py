@@ -13,6 +13,31 @@ CONTROL_NAMES = {
     'cabin_clean': 'Refresh cabin air',
 }
 
+COMFORT_START_ACTIONS = {'climate_on', 'seat_heat_on', 'seat_vent_on',
+                         'steering_on', 'front_demister_on', 'rear_demister_on'}
+
+
+def comfort_settings(action, settings):
+    """Validate per-command overrides without changing saved account options."""
+    if not settings:
+        return {}
+    if action not in COMFORT_START_ACTIONS:
+        raise ValueError('Settings apply only to comfort start controls')
+    fields = {'duration': ('control_duration', 5, 30)}
+    if action == 'climate_on':
+        fields['temperature'] = ('climate_temperature', 16, 32)
+    if action in {'seat_heat_on', 'seat_vent_on'}:
+        fields['level'] = ('seat_level', 1, 3)
+    result = {}
+    for key, value in settings.items():
+        if key not in fields:
+            raise ValueError('This setting does not apply to the selected control')
+        target, low, high = fields[key]
+        if type(value) is not int or not low <= value <= high:
+            raise ValueError(f'{key.capitalize()} must be a whole number from {low} to {high}')
+        result[target] = value
+    return result
+
 
 def command_body(action, *, temperature=25, duration=5, level=1):
     if action not in CONTROL_NAMES:

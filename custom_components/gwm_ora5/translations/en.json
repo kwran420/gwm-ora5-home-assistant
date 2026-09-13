@@ -54,5 +54,25 @@
     "error": {
       "pin_required": "Configure your six-digit vehicle PIN by reconfiguring the integration first."
     }
+  },
+  "services": {
+    "start_comfort": {
+      "name": "Start comfort with settings",
+      "description": "Select exactly one ORA climate, seat, steering heat or demister start button. Uses the usual command journal and telemetry checks. Does not change saved defaults.",
+      "fields": {
+        "temperature": {
+          "name": "Target temperature",
+          "description": "Climate start only, in degrees Celsius."
+        },
+        "duration": {
+          "name": "Runtime",
+          "description": "Requested runtime in minutes."
+        },
+        "level": {
+          "name": "Seat level",
+          "description": "Both-front-seat heating or ventilation only, levels 1 to 3."
+        }
+      }
+    }
   }
 }

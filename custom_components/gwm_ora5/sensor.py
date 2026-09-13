@@ -10,7 +10,8 @@ METRICS = [('soc', 'Battery'), ('range', 'Range'), ('charging_status', 'Charging
            ('remaining_charge_time', 'Estimated remaining charging time'),
            ('charging_mode_code', 'Charging mode code'), ('away_mode_code', 'Away mode code'),
            ('vehicle_updated_ms', 'Vehicle data timestamp'), ('raw_signals', 'Raw status signals'),
-           ('recorded_charging_sessions', 'Recorded charging sessions'), ('schedule_plan_count', 'Charging schedule records')]
+           ('recorded_charging_sessions', 'Recorded charging sessions'), ('schedule_plan_count', 'Charging schedule records'),
+           ('remote_history_last_ms', 'Last recorded remote command')]
 METRICS += [(f'tyre_{kind}_{position}', f'{position.replace("_", " ").capitalize()} tyre {kind}')
             for kind in ('pressure', 'temperature')
             for position in ('front_left', 'front_right', 'rear_left', 'rear_right')]
@@ -48,16 +49,16 @@ class OraSensor(OraEntity, SensorEntity):
             self._attr_native_unit_of_measurement = '°C'
             self._attr_device_class = SensorDeviceClass.TEMPERATURE
             self._attr_state_class = SensorStateClass.MEASUREMENT
-        elif metric == 'vehicle_updated_ms':
+        elif metric in ('vehicle_updated_ms', 'remote_history_last_ms'):
             self._attr_device_class = SensorDeviceClass.TIMESTAMP
-        if metric in ('raw_signals', 'charging_mode_code', 'away_mode_code', 'schedule_plan_count'):
+        if metric in ('raw_signals', 'charging_mode_code', 'away_mode_code', 'schedule_plan_count', 'remote_history_last_ms'):
             self._attr_entity_registry_enabled_default = False
 
     @property
     def native_value(self):
         if self.metric == 'raw_signals':
             return len(self.values.get('raw_signals', {}))
-        if self.metric == 'vehicle_updated_ms':
+        if self.metric in ('vehicle_updated_ms', 'remote_history_last_ms'):
             value = self.values.get(self.metric)
             try:
                 return datetime.fromtimestamp(value / 1000, UTC) if value else None
@@ -67,6 +68,15 @@ class OraSensor(OraEntity, SensorEntity):
 
     @property
     def extra_state_attributes(self):
+        if self.metric == 'command_status':
+            from .controls import CONTROL_NAMES
+            action = self.values.get('command_action')
+            expected = self.values.get('command_expected_charging')
+            return {'last_action': action if action in {*CONTROL_NAMES, 'start', 'stop'} else None,
+                    'expected_charging': expected if type(expected) is bool else None}
+        if self.metric == 'remote_history_last_ms':
+            return {**self.values.get('remote_history_summary', {}),
+                    'meaning': 'Provider history only; completion is not physical-state confirmation'}
         if self.metric == 'schedule_plan_count':
             return {'plans': self.values.get('charging_plans', [])}
         return self.values.get('raw_signals', {}) if self.metric == 'raw_signals' else {}

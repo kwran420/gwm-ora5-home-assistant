@@ -1,0 +1,32 @@
+start_comfort:
+  target:
+    entity:
+      integration: gwm_ora5
+      domain: button
+  fields:
+    temperature:
+      example: 24
+      selector:
+        number:
+          min: 16
+          max: 32
+          step: 1
+          mode: box
+          unit_of_measurement: "°C"
+    duration:
+      example: 10
+      selector:
+        number:
+          min: 5
+          max: 30
+          step: 1
+          mode: box
+          unit_of_measurement: min
+    level:
+      example: 2
+      selector:
+        number:
+          min: 1
+          max: 3
+          step: 1
+          mode: box

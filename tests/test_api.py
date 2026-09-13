@@ -43,6 +43,43 @@ def client(transport):
 
 
 class ApiTests(unittest.IsolatedAsyncioTestCase):
+    async def test_remote_history_retains_only_safe_summary(self):
+        transport = Transport([{'code': '000000', 'data': {'total': 9, 'list': [
+            {'createdAt': 1789269000000, 'remoteType': '0x01', 'resultCode': '0',
+             'vin': 'PRIVATE-SENTINEL', 'nick': 'PRIVATE-SENTINEL', 'params': 'PRIVATE-SENTINEL'},
+            {'createdAt': 1789269100000, 'remoteType': '0x04', 'resultCode': '1014'},
+            {'createdAt': True, 'remoteType': '0x05', 'resultCode': '0'}]}}])
+        async with client(transport) as c:
+            result = await c.remote_history(VehicleIdentifier('SYNTHETIC-VEHICLE'))
+        self.assertNotIn('PRIVATE-SENTINEL', str(result))
+        self.assertEqual(result['remote_history_last_ms'], 1789269100000)
+        self.assertEqual(result['remote_history_summary']['instruction'], '0x04')
+        self.assertEqual(result['remote_history_summary']['provider_result_code'], '1014')
+        self.assertEqual(result['remote_history_summary']['record_count'], 9)
+        self.assertEqual(json.loads(transport.requests[0].body)['pageSize'], 3)
+        self.assertTrue(transport.requests[0].url.endswith('/vehicle/getWeyVrcHistory'))
+
+    async def test_remote_history_empty_and_malformed_responses(self):
+        from gwm_client import GwmClientError
+        for value in (None, {}, {'list': 'bad'}):
+            async with client(Transport([{'code':'000000', 'data':value}])) as c:
+                with self.assertRaises(GwmClientError):
+                    await c.remote_history(VehicleIdentifier('SYNTHETIC-VEHICLE'))
+        async with client(Transport([{'code':'000000', 'data':{'total':0, 'list':[]}}])) as c:
+            result = await c.remote_history(VehicleIdentifier('SYNTHETIC-VEHICLE'))
+        self.assertIsNone(result['remote_history_last_ms'])
+
+    def test_comfort_settings_are_action_specific_and_strict(self):
+        self.assertEqual(controls.comfort_settings('climate_on', {'temperature':24,'duration':10}),
+                         {'climate_temperature':24,'control_duration':10})
+        self.assertEqual(controls.comfort_settings('seat_vent_on', {'level':3}), {'seat_level':3})
+        for action, settings in [('horn',{'duration':5}), ('climate_on',{'level':2}),
+            ('seat_heat_on',{'temperature':24}), ('seat_vent_on',{'level':True}),
+            ('climate_on',{'temperature':24.5}), ('climate_on',{'duration':31}),
+            ('steering_on',{'raw_body':'unsafe'})]:
+            with self.assertRaises(ValueError):
+                controls.comfort_settings(action, settings)
+
     async def test_both_charge_actions_have_exact_payload(self):
         for enabled, order in [(True, "1"), (False, "2")]:
             transport = Transport([{"code": "000000"}])

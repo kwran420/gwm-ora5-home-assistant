@@ -61,6 +61,10 @@ class OraCoordinator(DataUpdateCoordinator):
                     self.detail_cache[key] = await self.client.charging_details(vehicle.identifier)
                 except (GwmClientError, ValueError):
                     self.detail_cache[key] = {}
+                try:
+                    self.detail_cache[key].update(await self.client.remote_history(vehicle.identifier))
+                except (GwmClientError, ValueError):
+                    pass  # Optional history must not hide live vehicle telemetry.
             values[key].update(self.detail_cache.get(key, {}))
             record = self.journal.get(key, {})
             if record.get("state") in {"accepted", "submitting", "pending"} and record.get("sequence"):
@@ -73,6 +77,8 @@ class OraCoordinator(DataUpdateCoordinator):
                 record["state"] = "completed"
                 await self.store.async_save(self.journal)
             values[key]["command_status"] = record.get("state", "idle")
+            values[key]["command_action"] = record.get("action")
+            values[key]["command_expected_charging"] = record.get("expected", {}).get("charging")
         return values
 
     async def _async_update_data(self):
@@ -95,18 +101,24 @@ class OraCoordinator(DataUpdateCoordinator):
     async def charge(self, key, enabled):
         return await self._command(key, enabled=enabled)
 
-    async def control(self, key, action):
-        return await self._command(key, action=action)
+    async def control(self, key, action, **settings):
+        return await self._command(key, action=action, settings=settings)
 
-    async def _command(self, key, *, enabled=None, action=None):
+    async def _command(self, key, *, enabled=None, action=None, settings=None):
         vehicle_control = action is not None
+        options = dict(self.entry.options)
         if vehicle_control:
             if not self.entry.options.get("enable_vehicle_controls", False):
                 raise HomeAssistantError("Enable vehicle controls in integration options first")
+            from .controls import comfort_settings
+            try:
+                options.update(comfort_settings(action, settings or {}))
+            except ValueError as error:
+                raise HomeAssistantError(str(error)) from None
             instruction, body = command_body(action,
-                temperature=self.entry.options.get("climate_temperature", 25),
-                duration=self.entry.options.get("control_duration", 5),
-                level=self.entry.options.get("seat_level", 1))
+                temperature=options.get("climate_temperature", 25),
+                duration=options.get("control_duration", 5),
+                level=options.get("seat_level", 1))
         else:
             instruction, body = "0x01", {"switchOrder": "1" if enabled else "2"}
         if not vehicle_control and not self.entry.data.get("enable_commands"):
@@ -131,7 +143,7 @@ class OraCoordinator(DataUpdateCoordinator):
             self.journal[key] = {"state": "submitting", "sequence": sequence,
                                  "action": action if vehicle_control else "start" if enabled else "stop",
                                  "remote_type": instruction,
-                                 "expected": expected_state(action, level=self.entry.options.get("seat_level", 1)) if vehicle_control else {"charging": enabled}}
+                                 "expected": expected_state(action, level=options.get("seat_level", 1)) if vehicle_control else {"charging": enabled}}
             await self.store.async_save(self.journal)
             try:
                 try:
