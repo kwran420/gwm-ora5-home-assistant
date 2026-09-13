@@ -1,6 +1,19 @@
 # GWM ORA 5 for Home Assistant
 
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="custom_components/gwm_ora5/brand/dark_logo.png">
+  <img src="custom_components/gwm_ora5/brand/logo.png" alt="ORA" width="240">
+</picture>
+
 Experimental Home Assistant integration for the **GWM ORA 5 in Australia and New Zealand**, using the regional GWM cloud account. Each installation uses its owner's credentials. A phone or USB connection is not needed after setup.
+
+[![Open in HACS](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=kwran420&repository=gwm-ora5-home-assistant&category=integration)
+
+**Early testers wanted.** Start with [the testing guide](TESTING.md), then share a
+[compatibility report](https://github.com/kwran420/gwm-ora5-home-assistant/issues/new?template=compatibility.yml).
+Reports from additional Australian vehicles and New Zealand owners will help
+establish which features work across accounts and trims. This project is available
+as a HACS custom repository; it is not in the default HACS catalogue.
 
 ## What works
 
@@ -29,6 +42,20 @@ Requires Home Assistant 2026.1 or newer. This is a custom integration, not an of
 Use a dedicated GWM account and share your ORA 5 with it from your owner account. GWM can displace another session using the same account. Keep your phone signed into the owner account, and let Home Assistant use the dedicated one. Configure the vehicle PIN on the dedicated account before signing it into Home Assistant to reduce repeated verification.
 
 Account details, PIN and tokens are stored in Home Assistant's private configuration/storage. Protect Home Assistant backups as you would other credentials; this integration does not provide separate encryption of Home Assistant storage. No credentials are included in this repository. Reconfigure the integration to change credentials or charging permission. Use **Configure** for the separate vehicle-controls opt-in, climate temperature, runtime and front-seat level. No new login is needed for these options. Alarm, boot-open, raw-signal and location entities are disabled by default; enable individually if wanted.
+
+## Raw status signals
+
+Enable **Raw status signals** on the device's entity page to inspect fields that
+do not yet have a dedicated sensor. Its state is a **count**, such as `47 signals`.
+Open the entity's attributes to see each seven-digit field ID and its numeric
+value, plus `signal_labels` and `unmapped_codes`. New numeric fields appear
+automatically. Unknown meanings remain explicitly unmapped.
+
+Counts can change when the cloud omits a field. Estimated charging time, for
+example, was present in a 48-field reading and absent in a later 47-field reading.
+An absent or nonnumeric field is not treated as zero. Raw values use different
+enumerations; `1` does not universally mean on or a fault. These cloud fields are
+not OBD PID numbers. GPS coordinates remain on the separate opt-in tracker.
 
 ## Charging semantics
 

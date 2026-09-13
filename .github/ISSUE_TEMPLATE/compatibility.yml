@@ -1,0 +1,41 @@
+name: Vehicle compatibility report
+description: Share what worked on your ORA 5, including telemetry-only results.
+title: "Compatibility: ORA 5 / region / trim"
+body:
+  - type: markdown
+    attributes:
+      value: "Omit credentials, PINs, tokens, VINs, registration plates, location and raw captures."
+  - type: input
+    id: vehicle
+    attributes:
+      label: Region, model year and trim
+    validations:
+      required: true
+  - type: input
+    id: versions
+    attributes:
+      label: Integration, Home Assistant and GWM app versions
+    validations:
+      required: true
+  - type: dropdown
+    id: account
+    attributes:
+      label: Account arrangement
+      options:
+        - Dedicated shared account
+        - Same account as phone app
+        - Other arrangement (describe without account details)
+    validations:
+      required: true
+  - type: textarea
+    id: results
+    attributes:
+      label: What worked, failed or was not tested
+      description: "Include login and telemetry. Distinguish observed vehicle behaviour from HA command feedback."
+    validations:
+      required: true
+  - type: textarea
+    id: reliability
+    attributes:
+      label: Reliability over time
+      description: "Any stale data, session interruptions or recovery after sleep?"

@@ -4,6 +4,7 @@ from homeassistant.const import PERCENTAGE, UnitOfLength
 from datetime import datetime, UTC
 
 from .entity import OraEntity
+from .signals import signal_metadata
 
 METRICS = [('soc', 'Battery'), ('range', 'Range'), ('charging_status', 'Charging status'),
            ('command_status', 'Command status'), ('odometer', 'Odometer'),
@@ -30,6 +31,8 @@ async def async_setup_entry(hass, entry, async_add_entities):
 class OraSensor(OraEntity, SensorEntity):
     def __init__(self, coordinator, key, metric, name):
         super().__init__(coordinator, key, metric, name)
+        if metric == 'raw_signals':
+            self._attr_native_unit_of_measurement = 'signals'
         if metric == "soc":
             self._attr_native_unit_of_measurement = PERCENTAGE
             self._attr_device_class = SensorDeviceClass.BATTERY
@@ -79,4 +82,7 @@ class OraSensor(OraEntity, SensorEntity):
                     'meaning': 'Provider history only; completion is not physical-state confirmation'}
         if self.metric == 'schedule_plan_count':
             return {'plans': self.values.get('charging_plans', [])}
-        return self.values.get('raw_signals', {}) if self.metric == 'raw_signals' else {}
+        if self.metric == 'raw_signals':
+            raw = self.values.get('raw_signals', {})
+            return {**raw, **signal_metadata(raw)}
+        return {}

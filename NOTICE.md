@@ -12,3 +12,7 @@ Functional observations used here:
 - The returned hardware-command identifier is not the submitted request sequence. The application selects a charging result by its remote type from the sequence-scoped response.
 
 These interoperability observations do not grant rights to GWM assets or imply GWM endorsement. Upstream's production release holds remain its own unresolved conditions. No claim of production readiness is made here.
+
+The separately sourced ORA emblem and wordmark identify the supported marque.
+Their source and trademark attribution are documented in [brand/README.md](custom_components/gwm_ora5/brand/README.md).
+They were not extracted from the application.

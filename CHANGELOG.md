@@ -1,3 +1,10 @@
+# V0.3.1 - 2026-09-13
+
+- Include ORA brand images for Home Assistant 2026.3+.
+- Clarify the raw-field count and expose names and unmapped field IDs while retaining numeric attributes.
+- Add HACS installation entry point, AU/NZ metadata and compatibility/bug report forms.
+- Document local diagnostic investigation candidates separately from validated cloud capabilities.
+
 # V0.3.0 - 2026-09-13
 
 - Add a comfort-start action with per-command temperature, runtime and seat level.

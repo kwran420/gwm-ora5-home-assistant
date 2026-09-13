@@ -96,3 +96,29 @@ seat-level feedback and history redaction. No new physical comfort test has been
 claimed. A cloud timeout/authentication interruption occurred during the session;
 reads later recovered. The private reserve controller's recovery for a completed
 Stop with an unchanged sleeping-car timestamp is tested separately.
+
+## Beyond the phone app - 2026-09-13
+
+These are investigation routes, not new tested ORA 5 capabilities. No OBD adapter
+has been identified on the owner's setup and no diagnostic requests, CAN writes
+or infotainment changes were sent during this investigation.
+
+| Route | Evidence and next useful test |
+|---|---|
+| OBD diagnostics over WiCAN | WiCAN lists Good Cat/Funky Cat/ES11/Haomao/ORA 03, but not ORA 5. Its [GWM profile](https://github.com/meatpiHQ/wican-fw/blob/bc3ae6d4ad09f32b96ca101b31950e4fbf56b825/vehicle_profiles/gwm/gwm.json) defines SOC, a capacity field, speed, odometer, coolant temperature and tyre readings. Treat these as candidates to compare against this car; the capacity field is not proof of battery health. |
+| CAN observation | A local adapter can support frame observation and diagnostic reads, potentially showing changes not included in cloud status. Which buses this ORA's diagnostic gateway exposes is unverified. Begin with observation and bounded documented reads; do not replay unknown frames or run writes to braking, steering, airbags, immobilisers or firmware. |
+| Android Auto | Google's [Car Hardware API](https://developer.android.com/training/cars/apps/library/car-hardware-api) offers permission-controlled energy, range and other properties where the vehicle supplies them. Support must be checked on this head unit. It requires an active connection and does not establish a general remote lock or charging-control API. |
+| Infotainment USB/debug access | Phone USB debugging grants access to the phone only. It establishes neither head-unit ADB access nor Android Automotive OS support. Record the car's system/software information and supported connections before selecting a diagnostic method; no engineering-menu unlock or firmware modification is proposed here. |
+| Charger-side local integration | A locally controllable EVSE with metering could supply measured charging power/energy and independent stop control. The current portable charger has no established data/control interface. This is a separate hardware route, not hidden car telemetry. |
+
+The [WiCAN supported-vehicle list](https://meatpihq.github.io/wican-fw/config/automate/supported_vehicles/)
+describes community-submitted coverage, and [an earlier ORA owner investigation](https://github.com/meatpiHQ/wican-fw/discussions/69)
+reports working local readings on an older model. Neither establishes compatibility
+with this ORA 5. Check adapter hardware first, then validate SOC and odometer before
+adding any candidate signal to energy decisions. Test sleep/wake behaviour and
+12 V impact before leaving an adapter polling while parked.
+
+A later cloud response contained 47 numeric fields: estimated charging time
+(`2013022`) was absent from the earlier 48-field set and returned during charging.
+V0.3.1 labels the count and
+lists unmapped fields explicitly; it does not convert unknown codes into faults.

@@ -10,6 +10,17 @@ HAS_HA = importlib.util.find_spec("homeassistant") is not None
 
 @unittest.skipUnless(HAS_HA, "Run in a Home Assistant Python environment")
 class HomeAssistantTests(unittest.IsolatedAsyncioTestCase):
+    async def test_new_unmapped_signal_remains_visible_without_guessing_meaning(self):
+        from custom_components.gwm_ora5.sensor import OraSensor
+        c = SimpleNamespace(entry=SimpleNamespace(entry_id='synthetic'), data={'v':{
+            'raw_signals': {'2013021': 74.0, '2999999': 1.0}}})
+        e = OraSensor(c, 'v', 'raw_signals', 'Raw status signals')
+        self.assertEqual(e.native_value, 2)
+        self.assertEqual(e.native_unit_of_measurement, 'signals')
+        self.assertEqual(e.extra_state_attributes['2999999'], 1.0)
+        self.assertEqual(e.extra_state_attributes['unmapped_codes'], ['2999999'])
+        self.assertEqual(e.extra_state_attributes['signal_labels']['2999999'], 'Unknown / unmapped')
+
     async def test_comfort_service_registers_at_component_setup(self):
         from custom_components.gwm_ora5 import async_setup
         h=SimpleNamespace(services=SimpleNamespace(async_register=MagicMock()))

@@ -1,0 +1,32 @@
+name: Bug report
+description: Report an installation, telemetry or command-feedback problem.
+title: "Bug: "
+body:
+  - type: markdown
+    attributes:
+      value: "Omit credentials, PINs, tokens, VINs, location, captures and HA configuration/storage files."
+  - type: input
+    id: setup
+    attributes:
+      label: Region, trim and software versions
+      description: "Include integration, Home Assistant and GWM app versions; no identifiers."
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps and expected result
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual result
+      description: "Include HA status and observed behaviour. Do not repeatedly resend unresolved commands to reproduce a bug."
+    validations:
+      required: true
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Sanitised diagnostic information (optional)
+      description: "Review any excerpt for private information before posting."
