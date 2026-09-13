@@ -160,3 +160,37 @@ queries gradually and check 12 V behaviour before permanent installation. Keep
 the cloud control path during evaluation. No validated local ORA 5 start/stop,
 lock, climate or window command has been identified, and no adapter is connected
 to this installation yet.
+
+## Coffee OS investigation - 2026-09-13
+
+The owner identifies the infotainment as current Coffee OS. The exact software
+build, underlying Android version and head-unit hardware have not been read.
+GWM's [ORA 5 Thai brochure](https://www.gwm.co.th/content/dam/gwm/pages/th/th/model/ora-5/tc_ora5_bev_catalog_th_220326.pdf)
+specifies Coffee OS 3; a regional brochure does not establish the installed
+Australian firmware or compatibility with another model's access method.
+
+No reproducible ORA 5 root or ADB-enablement method was verified in this review.
+An [older ORA owner investigation](https://www.gwm-ora-forum.de/forum/thread/216-erweiterung-software-android/)
+reached Android settings but reported difficulty keeping USB debugging enabled.
+A [GWM head-unit discussion](https://4pda.to/forum/index.php?showtopic=1110681&st=4600)
+contains a June 2026 Coffee OS 3 / Android 11 report for Dargo, alongside ADB
+reports for other head units. These are useful leads, not evidence of an ORA 5
+unlock. App installation, an authorised ADB shell and root are different access
+levels. Google's [ADB documentation](https://developer.android.com/tools/adb)
+describes the debugging and authorisation prerequisites.
+
+GWM's official [developer platform](https://developer.gwm.cn/) is a separate
+integration lead. It advertises climate, lighting, seat, lock and window APIs,
+plus SOA and MCP development resources. API visibility depends on developer
+verification and permissions. Inspection of its public web application found
+real-name/identity-number registration and a submission flow with country set
+to China. Overseas individual eligibility, Australian ORA 5 support, API grants
+and deployment to a retail head unit remain unverified. No developer account,
+identity submission or permission bypass was attempted.
+
+The next useful evidence is the car's complete system-information/build screen,
+followed by checking its available USB/network debugging interfaces. If an
+authorised shell becomes available, start with version information, installed
+package names and service discovery. Firmware analysis would require an update
+package matching the actual unit. No firmware flashing, head-unit reset or
+physical vehicle command was performed during this research.
