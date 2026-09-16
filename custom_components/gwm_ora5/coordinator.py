@@ -94,8 +94,13 @@ class OraCoordinator(DataUpdateCoordinator):
                     )
                     self._save_auth(result.state)
                     return await self._read_vehicles()
-                except GwmClientError:
-                    raise ConfigEntryAuthFailed("GWM session needs sign-in") from None
+                except GwmClientError as refresh_error:
+                    if (isinstance(refresh_error, GwmAuthenticationError)
+                        or getattr(refresh_error, "api_code", None) in AUTH_CODES):
+                        raise ConfigEntryAuthFailed("GWM session needs sign-in") from None
+                    # A network/server failure is not evidence that credentials
+                    # were rejected. Keep normal coordinator retries available.
+                    raise UpdateFailed("GWM session refresh is temporarily unavailable") from None
             raise UpdateFailed("GWM cloud data is unavailable") from None
 
     async def charge(self, key, enabled):

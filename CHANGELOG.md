@@ -1,3 +1,9 @@
+# V0.3.2 - 2026-09-16
+
+- Keep automatic polling recovery after a network, timeout or server failure during session renewal. Only confirmed authentication rejection requires sign-in again.
+- Add simulated tests for temporary refresh failures, later recovery and genuine credential rejection.
+- Preserve existing command serialization, feedback checks and no-blind-retry behavior.
+
 # V0.3.1 - 2026-09-13
 
 - Include ORA brand images for Home Assistant 2026.3+.

@@ -10,6 +10,66 @@ HAS_HA = importlib.util.find_spec("homeassistant") is not None
 
 @unittest.skipUnless(HAS_HA, "Run in a Home Assistant Python environment")
 class HomeAssistantTests(unittest.IsolatedAsyncioTestCase):
+    async def test_poll_recovers_after_temporary_refresh_outage(self):
+        from custom_components.gwm_ora5.coordinator import OraCoordinator
+        from gwm_client import GwmAuthenticationError, GwmNetworkError
+        from homeassistant.helpers.update_coordinator import UpdateFailed
+        c = object.__new__(OraCoordinator)
+        c._read_vehicles = AsyncMock(side_effect=[GwmAuthenticationError(), GwmAuthenticationError(), {'vehicle': {'charging': True}}])
+        c.entry = SimpleNamespace(data={})
+        c._save_auth = MagicMock()
+        c.client = SimpleNamespace(refresh_current_anz_session=AsyncMock(side_effect=[
+            GwmNetworkError(), SimpleNamespace(state='synthetic')]))
+        with patch('custom_components.gwm_ora5.coordinator.make_credentials'), \
+             patch('custom_components.gwm_ora5.coordinator.decode_state'):
+            with self.assertRaises(UpdateFailed):
+                await c._async_update_data()
+            self.assertEqual(await c._async_update_data(), {'vehicle': {'charging': True}})
+        c._save_auth.assert_called_once_with('synthetic')
+
+    async def test_transient_refresh_errors_keep_automatic_polling(self):
+        from custom_components.gwm_ora5.coordinator import OraCoordinator
+        from gwm_client import GwmAuthenticationError, GwmNetworkError, GwmDeadlineExceededError, GwmApiError
+        from homeassistant.helpers.update_coordinator import UpdateFailed
+        for failure in [GwmNetworkError(), GwmDeadlineExceededError(), GwmApiError(api_code='500')]:
+            c = object.__new__(OraCoordinator)
+            c._read_vehicles = AsyncMock(side_effect=GwmAuthenticationError())
+            c.entry = SimpleNamespace(data={})
+            c.client = SimpleNamespace(refresh_current_anz_session=AsyncMock(side_effect=failure))
+            with patch('custom_components.gwm_ora5.coordinator.make_credentials'), \
+                 patch('custom_components.gwm_ora5.coordinator.decode_state'):
+                with self.assertRaises(UpdateFailed):
+                    await c._async_update_data()
+
+    async def test_rejected_refresh_still_requires_sign_in(self):
+        from custom_components.gwm_ora5.coordinator import OraCoordinator
+        from gwm_client import GwmAuthenticationError, GwmApiError
+        from homeassistant.exceptions import ConfigEntryAuthFailed
+        for failure in [GwmAuthenticationError(), GwmApiError(api_code='550004')]:
+            c = object.__new__(OraCoordinator)
+            c._read_vehicles = AsyncMock(side_effect=GwmAuthenticationError())
+            c.entry = SimpleNamespace(data={})
+            c.client = SimpleNamespace(refresh_current_anz_session=AsyncMock(side_effect=failure))
+            with patch('custom_components.gwm_ora5.coordinator.make_credentials'), \
+                 patch('custom_components.gwm_ora5.coordinator.decode_state'):
+                with self.assertRaises(ConfigEntryAuthFailed):
+                    await c._async_update_data()
+
+    async def test_read_failure_after_successful_refresh_remains_retryable(self):
+        from custom_components.gwm_ora5.coordinator import OraCoordinator
+        from gwm_client import GwmAuthenticationError, GwmNetworkError
+        from homeassistant.helpers.update_coordinator import UpdateFailed
+        c = object.__new__(OraCoordinator)
+        c._read_vehicles = AsyncMock(side_effect=[GwmAuthenticationError(), GwmNetworkError()])
+        c.entry = SimpleNamespace(data={})
+        c._save_auth = MagicMock()
+        c.client = SimpleNamespace(refresh_current_anz_session=AsyncMock(return_value=SimpleNamespace(state='synthetic')))
+        with patch('custom_components.gwm_ora5.coordinator.make_credentials'), \
+             patch('custom_components.gwm_ora5.coordinator.decode_state'):
+            with self.assertRaises(UpdateFailed):
+                await c._async_update_data()
+        c._save_auth.assert_called_once_with('synthetic')
+
     async def test_new_unmapped_signal_remains_visible_without_guessing_meaning(self):
         from custom_components.gwm_ora5.sensor import OraSensor
         c = SimpleNamespace(entry=SimpleNamespace(entry_id='synthetic'), data={'v':{
