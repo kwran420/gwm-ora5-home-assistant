@@ -75,8 +75,12 @@ class OraSensor(OraEntity, SensorEntity):
             from .controls import CONTROL_NAMES
             action = self.values.get('command_action')
             expected = self.values.get('command_expected_charging')
-            return {'last_action': action if action in {*CONTROL_NAMES, 'start', 'stop'} else None,
-                    'expected_charging': expected if type(expected) is bool else None}
+            attrs = {'last_action': action if action in {*CONTROL_NAMES, 'start', 'stop'} else None,
+                     'expected_charging': expected if type(expected) is bool else None}
+            resolution = self.values.get('command_resolution')
+            if resolution in {'remote_result_and_feedback', 'observed_stopped'}:
+                attrs['resolution'] = resolution
+            return attrs
         if self.metric == 'remote_history_last_ms':
             return {**self.values.get('remote_history_summary', {}),
                     'meaning': 'Provider history only; completion is not physical-state confirmation'}

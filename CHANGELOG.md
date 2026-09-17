@@ -1,3 +1,11 @@
+# V0.3.3 - 2026-09-18
+
+- Recheck scoped results for commands whose outcome became unknown, including after a timeout or restart.
+- Preserve usable vehicle telemetry when a command-result read has a temporary network failure.
+- Resolve an ambiguous charging Stop from repeated fresh stopped-state observations; unknown Starts and other controls still require their command result.
+- Protect the journal against stale result reads and concurrent commands, and identify preflight rejections as not transmitted.
+- Add 17 simulated recovery tests; all 54 public integration tests pass.
+
 # V0.3.2 - 2026-09-16
 
 - Keep automatic polling recovery after a network, timeout or server failure during session renewal. Only confirmed authentication rejection requires sign-in again.
